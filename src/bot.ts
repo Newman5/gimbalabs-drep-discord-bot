@@ -18,8 +18,8 @@ const client = new Client({
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user?.tag}`);
 
-  // Schedule job daily at 9:00 AM UTC
-  cron.schedule("0 9 * * *", async () => {
+    // Schedule job every 5 seconds for testing
+    cron.schedule("*/5 * * * * *", async () => {
     const channel = (await client.channels.fetch(CHANNEL_ID)) as TextChannel;
 
     if (!channel) {

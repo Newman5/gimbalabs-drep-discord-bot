@@ -18,8 +18,8 @@ const client = new discord_js_1.Client({
 // When bot is ready
 client.once("ready", () => {
     console.log(`✅ Logged in as ${client.user?.tag}`);
-    // Schedule job daily at 9:00 AM UTC
-    node_cron_1.default.schedule("0 9 * * *", async () => {
+    // Schedule job every 5 seconds for testing
+    node_cron_1.default.schedule("*/5 * * * * *", async () => {
         const channel = (await client.channels.fetch(CHANNEL_ID));
         if (!channel) {
             console.error("Channel not found!");
