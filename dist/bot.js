@@ -28,19 +28,19 @@ function generateEmbedsFromUnvotedProposals(unvotedProposals, maxProposals = 10)
     }
     const embeds = [];
     // Summary embed
-    embeds.push({
-        title: "🔍 Pending Proposals - Votes Needed",
-        description: `Found ${unvotedProposals.length} pending proposal(s) that Gimbalabs DRep has not voted on yet.`,
-        fields: [
-            {
-                name: "📊 Total Unvoted",
-                value: unvotedProposals.length.toString(),
-                inline: true,
-            },
-        ],
-        color: 0xf39c12,
-        timestamp: new Date().toISOString(),
-    });
+    // embeds.push({
+    //   title: "🔍 Pending Proposals - Votes Needed",
+    //   description: `Found ${unvotedProposals.length} pending proposal(s) that Gimbalabs DRep has not voted on yet.`,
+    //   fields: [
+    //     {
+    //       name: "📊 Total Unvoted",
+    //       value: unvotedProposals.length.toString(),
+    //       inline: true,
+    //     },
+    //   ],
+    //   color: 0xf39c12,
+    //   timestamp: new Date().toISOString(),
+    // });
     // Individual proposals
     const limitedProposals = unvotedProposals.slice(0, maxProposals);
     limitedProposals.forEach((proposal, index) => {
