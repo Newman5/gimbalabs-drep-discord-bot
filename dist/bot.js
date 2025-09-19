@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const node_cron_1 = __importDefault(require("node-cron"));
+const express_1 = __importDefault(require("express")); // 👈 add express
 const gimbalabs_drep_1 = require("./gimbalabs-drep");
 // Load from environment variables
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -17,61 +18,24 @@ if (!TOKEN || !CHANNEL_ID) {
  */
 function generateEmbedsFromUnvotedProposals(unvotedProposals, maxProposals = 10) {
     if (unvotedProposals.length === 0) {
-        return [
-            {
+        return [{
                 title: "✅ All Caught Up!",
                 description: "Gimbalabs DRep has voted on all pending proposals.",
                 color: 0x2ecc71,
                 timestamp: new Date().toISOString(),
-            },
-        ];
+            }];
     }
     const embeds = [];
-    // Summary embed
-    // embeds.push({
-    //   title: "🔍 Pending Proposals - Votes Needed",
-    //   description: `Found ${unvotedProposals.length} pending proposal(s) that Gimbalabs DRep has not voted on yet.`,
-    //   fields: [
-    //     {
-    //       name: "📊 Total Unvoted",
-    //       value: unvotedProposals.length.toString(),
-    //       inline: true,
-    //     },
-    //   ],
-    //   color: 0xf39c12,
-    //   timestamp: new Date().toISOString(),
-    // });
-    // Individual proposals
     const limitedProposals = unvotedProposals.slice(0, maxProposals);
     limitedProposals.forEach((proposal, index) => {
         embeds.push({
             title: `⏳ Unvoted Proposal #${index + 1}`,
             fields: [
-                {
-                    name: "Transaction Hash",
-                    value: `\`${proposal.tx_hash.substring(0, 16)}...\``,
-                    inline: true,
-                },
-                {
-                    name: "Certificate Index",
-                    value: proposal.cert_index.toString(),
-                    inline: true,
-                },
-                {
-                    name: "Governance Action",
-                    value: proposal.governance_type || "Unknown",
-                    inline: true,
-                },
-                {
-                    name: "Expiry Epoch",
-                    value: proposal.expiration?.toString() || "Unknown",
-                    inline: true,
-                },
-                {
-                    name: "GovTool",
-                    value: `[Link](https://gov.tools/governance_actions/${proposal.tx_hash}#${proposal.cert_index})`,
-                    inline: true,
-                },
+                { name: "Transaction Hash", value: `\`${proposal.tx_hash.substring(0, 16)}...\``, inline: true },
+                { name: "Certificate Index", value: proposal.cert_index.toString(), inline: true },
+                { name: "Governance Action", value: proposal.governance_type || "Unknown", inline: true },
+                { name: "Expiry Epoch", value: proposal.expiration?.toString() || "Unknown", inline: true },
+                { name: "GovTool", value: `[Link](https://gov.tools/governance_actions/${proposal.tx_hash}#${proposal.cert_index})`, inline: true },
             ],
             color: 0xe67e22,
             timestamp: new Date().toISOString(),
@@ -126,9 +90,14 @@ client.once("ready", async () => {
     // Schedule to run daily at 00:00 UTC
     node_cron_1.default.schedule("0 0 * * *", async () => {
         await checkProposalsAndSend(client);
-    }, {
-        timezone: "UTC",
-    });
+    }, { timezone: "UTC" });
 });
 // Login
 client.login(TOKEN);
+// 👇 ADD THIS: tiny express server to keep Render happy
+const app = (0, express_1.default)();
+app.get("/", (_, res) => res.send("Bot is running ✅"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🌍 Express server running on port ${PORT}`);
+});
