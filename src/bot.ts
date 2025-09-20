@@ -2,6 +2,8 @@ import { Client, GatewayIntentBits, TextChannel } from "discord.js";
 import cron from "node-cron";
 import express from "express"; // 👈 add express
 import { pendingProposalGimbalabsDrepHasNotVotedYet } from "./gimbalabs-drep";
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Load from environment variables
 const TOKEN = process.env.DISCORD_TOKEN as string;
@@ -30,7 +32,7 @@ function generateEmbedsFromUnvotedProposals(unvotedProposals: any[], maxProposal
     embeds.push({
       title: `⏳ Unvoted Proposal #${index + 1}`,
       fields: [
-        { name: "Transaction Hash", value: `\`${proposal.tx_hash.substring(0, 16)}...\``, inline: true },
+        { name: "Transaction Hash", value: `\`...${proposal.tx_hash.slice(-8)}\``, inline: true },
         { name: "Certificate Index", value: proposal.cert_index.toString(), inline: true },
         { name: "Governance Action", value: proposal.governance_type || "Unknown", inline: true },
         { name: "Expiry Epoch", value: proposal.expiration?.toString() || "Unknown", inline: true },

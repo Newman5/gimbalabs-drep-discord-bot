@@ -15,7 +15,8 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "dotenv": "^16.4.5"
   },
   "dependencies": {
     "discord.js": "^14.22.1",
