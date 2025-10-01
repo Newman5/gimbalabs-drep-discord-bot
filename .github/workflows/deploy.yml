@@ -1,32 +1,35 @@
-name: Deploy via FTP
+name: Deploy via SFTP
 
 on:
   push:
     branches:
-      - main   # or whichever branch you deploy from
+      - main   # deploys when you push to main
 
 jobs:
-  ftp-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 21  # match your SparkedHost node version
+          node-version: 21  # match SparkedHost's Node version
 
-      - name: Build TypeScript
+      - name: Build project
         run: |
           npm ci
           npm run build
 
-      - name: FTP Deploy
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: Deploy with SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
           server: ${{ secrets.FTP_SERVER }}
+          port: ${{ secrets.SFTP_PORT }}        # usually 22 or 2022
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./   # root of repo
-          server-dir: / 
+          local_path: './dist/*'                # only deploy compiled files
+          remote_path: '/home/container/bot'    # adjust path from SparkedHost panel
+          sftp_only: true
+          delete_remote_files: false            # set to true if you want clean deploys
