@@ -1,0 +1,11 @@
+# Node-related
+node_modules
+.git
+.github
+.gitignore
+tsconfig.json
+package-lock.json
+src
+
+# Local env
+.env

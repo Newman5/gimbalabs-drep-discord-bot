@@ -1,0 +1,32 @@
+name: Deploy via FTP
+
+on:
+  push:
+    branches:
+      - main   # or whichever branch you deploy from
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 21  # match your SparkedHost node version
+
+      - name: Build TypeScript
+        run: |
+          npm ci
+          npm run build
+
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./   # root of repo
+          server-dir: / 
