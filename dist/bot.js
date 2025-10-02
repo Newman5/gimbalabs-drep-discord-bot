@@ -7,6 +7,8 @@ const discord_js_1 = require("discord.js");
 const node_cron_1 = __importDefault(require("node-cron"));
 const express_1 = __importDefault(require("express")); // 👈 add express
 const gimbalabs_drep_1 = require("./gimbalabs-drep");
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 // Load from environment variables
 const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
@@ -31,11 +33,31 @@ function generateEmbedsFromUnvotedProposals(unvotedProposals, maxProposals = 10)
         embeds.push({
             title: `⏳ Unvoted Proposal #${index + 1}`,
             fields: [
-                { name: "Transaction Hash", value: `\`${proposal.tx_hash.substring(0, 16)}...\``, inline: true },
-                { name: "Certificate Index", value: proposal.cert_index.toString(), inline: true },
-                { name: "Governance Action", value: proposal.governance_type || "Unknown", inline: true },
-                { name: "Expiry Epoch", value: proposal.expiration?.toString() || "Unknown", inline: true },
-                { name: "GovTool", value: `[Link](https://gov.tools/governance_actions/${proposal.tx_hash}#${proposal.cert_index})`, inline: true },
+                {
+                    name: 'Transaction Hash',
+                    value: `\`${proposal.tx_hash.substring(0, 16)}...\``,
+                    inline: true,
+                },
+                {
+                    name: 'Certificate Index',
+                    value: proposal.cert_index.toString(),
+                    inline: true,
+                },
+                {
+                    name: 'Governance Action',
+                    value: proposal.governance_type || 'Unknown',
+                    inline: true,
+                },
+                {
+                    name: 'Expiry Epoch',
+                    value: proposal.expiration?.toString() || 'Unknown',
+                    inline: true,
+                },
+                {
+                    name: 'GovTool',
+                    value: `[Link](https://gov.tools/governance_actions/${proposal.tx_hash}#${proposal.cert_index})`,
+                    inline: true,
+                },
             ],
             color: 0xe67e22,
             timestamp: new Date().toISOString(),
