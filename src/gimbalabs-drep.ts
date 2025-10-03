@@ -82,98 +82,158 @@ export async function pendingProposalGimbalabsDrepHasNotVotedYet(): Promise<any[
     throw error;
   }
 }
+/**
+ * Fetch proposal metadata (title, abstract) from Blockfrost
+ */
+export async function fetchProposalMetadata(tx_hash: string, cert_index: number): Promise<{title: string, abstract: string}> {
+  try {
+    const url = `${process.env.BLOCKFROST_API_URL}/governance/proposals/${tx_hash}/${cert_index}/metadata`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        project_id: process.env.BLOCKFROST_API_KEY as string,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      title: data.json_metadata?.body?.title || 'Untitled Proposal',
+      abstract: data.json_metadata?.body?.abstract || '',
+    };
+  } catch (error) {
+    console.error(`❌ Error fetching metadata for ${tx_hash}/${cert_index}:`, error);
+    return { title: 'Unknown', abstract: '' };
+  }
+}
+
+/**
+ * Add proposal titles to unvoted proposals
+ */
+async function enrichProposalsWithTitles(unvotedProposals: any[]): Promise<any[]> {
+  return Promise.all(
+    unvotedProposals.map(async (proposal) => {
+      const meta = await fetchProposalMetadata(proposal.tx_hash, proposal.cert_index);
+      console.log('Enriched proposals with titles: fired');
+      return {
+        ...proposal,
+        title: meta.title,
+        abstract: meta.abstract,
+      };
+    })
+  );
+}
 
 /**
  * Get Discord embeds for pending proposals that Gimbalabs DRep has not voted on yet
  * @param maxProposals - Maximum number of proposals to include (default: 10)
  * @returns Promise<any[]> - Array of formatted Discord embeds
  */
-export async function getUnvotedProposalsForDiscord(maxProposals: number = 10): Promise<any[]> {
+export async function getUnvotedProposalsForDiscord(
+  maxProposals: number = 10
+): Promise<any[]> {
   try {
     const unvotedProposals = await pendingProposalGimbalabsDrepHasNotVotedYet();
-    
-    if (unvotedProposals.length === 0) {
-      return [{
-        title: '✅ All Caught Up!',
-        description: 'Gimbalabs DRep has voted on all pending proposals.',
-        color: 0x2ecc71,
-        timestamp: new Date().toISOString(),
-        footer: {
-          text: `Gimbalabs DRep: ${GIMBALABS_DREP_ID.substring(0, 20)}...`
-        }
-      }];
+    const enrichedProposals = await enrichProposalsWithTitles(unvotedProposals);
+console.log('Enriched proposals with titles:', enrichedProposals);
+    if (enrichedProposals.length === 0) {
+      return [
+        {
+          title: '✅ All Caught Up!',
+          description: 'Gimbalabs DRep has voted on all pending proposals.',
+          color: 0x2ecc71,
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: `Gimbalabs DRep: ${GIMBALABS_DREP_ID.substring(0, 20)}...`,
+          },
+        },
+      ];
     }
 
     const embeds = [];
-    
+
     // Summary embed
     embeds.push({
       title: '🔍 Pending Proposals - Votes Needed',
-      description: `Found ${unvotedProposals.length} pending proposal(s) that Gimbalabs DRep has not voted on yet.`,
+      description: `Found ${enrichedProposals.length} pending proposal(s) that Gimbalabs DRep has not voted on yet.`,
       fields: [
         {
           name: '📊 Total Unvoted',
-          value: unvotedProposals.length.toString(),
-          inline: true
+          value: enrichedProposals.length.toString(),
+          inline: true,
         },
         {
           name: '🏛️ DRep ID',
           value: `\`${GIMBALABS_DREP_ID.substring(0, 20)}...\``,
-          inline: true
-        }
+          inline: true,
+        },
       ],
       color: 0xf39c12,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
-    // Individual proposal embeds (limited by maxProposals)
-    const limitedProposals = unvotedProposals.slice(0, maxProposals);
-    limitedProposals.forEach((proposal, index) => {
+    // Individual proposal embeds
+    enrichedProposals.slice(0, maxProposals).forEach((proposal, index) => {
       embeds.push({
         title: `⏳ Unvoted Proposal #${index + 1}`,
         fields: [
           {
+            name: 'Title',
+            value: proposal.title,
+            inline: false,
+          },
+          {
             name: 'Transaction Hash',
             value: `\`${proposal.tx_hash.substring(0, 16)}...\``,
-            inline: true
+            inline: true,
           },
           {
             name: 'Certificate Index',
             value: proposal.cert_index.toString(),
-            inline: true
+            inline: true,
           },
           {
             name: 'Governance Action',
             value: proposal.governance_action_type || 'Unknown',
-            inline: true
+            inline: true,
           },
           {
             name: 'Expiry Epoch',
             value: proposal.expiry_epoch?.toString() || 'Unknown',
-            inline: true
+            inline: true,
           },
           {
             name: 'Deposit (ADA)',
-            value: proposal.deposit ? `${(parseInt(proposal.deposit) / 1000000).toLocaleString()}` : 'Unknown',
-            inline: true
-          }
+            value: proposal.deposit
+              ? `${(parseInt(proposal.deposit) / 1_000_000).toLocaleString()}`
+              : 'Unknown',
+            inline: true,
+          },
         ],
         color: 0xe67e22,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     });
 
     return embeds;
   } catch (error) {
     console.error('❌ Error formatting unvoted proposals for Discord:', error);
-    return [{
-      title: '❌ Error',
-      description: 'Failed to fetch unvoted proposals.',
-      color: 0xe74c3c,
-      timestamp: new Date().toISOString()
-    }];
+    return [
+      {
+        title: '❌ Error',
+        description: 'Failed to fetch unvoted proposals.',
+        color: 0xe74c3c,
+        timestamp: new Date().toISOString(),
+      },
+    ];
   }
 }
+
 
 /**
  * Get count of pending proposals that Gimbalabs DRep has not voted on yet
