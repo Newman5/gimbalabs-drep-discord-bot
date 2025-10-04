@@ -29,6 +29,7 @@ function generateEmbedsFromUnvotedProposals(unvotedProposals, maxProposals = 10)
             },
         ];
     }
+    console.log('bot.ts>generateEmbedsfromUnvotedProposals');
     // safe truncator for embed text (Discord limits: description ~4096, field value ~1024)
     const truncate = (s, n = 1024) => s ? (s.length > n ? s.slice(0, n - 1) + '…' : s) : undefined;
     const embeds = [];
@@ -38,6 +39,7 @@ function generateEmbedsFromUnvotedProposals(unvotedProposals, maxProposals = 10)
         const proposalTitle = proposal.title ||
             proposal.json_metadata?.body?.title ||
             `⏳ Unvoted Proposal #${index + 1}`;
+        console.log('proposal title:', proposalTitle);
         const proposalAbstract = proposal.abstract || proposal.json_metadata?.body?.abstract;
         embeds.push({
             title: proposalTitle,

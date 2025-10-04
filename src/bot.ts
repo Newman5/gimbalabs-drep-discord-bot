@@ -27,20 +27,25 @@ function generateEmbedsFromUnvotedProposals(unvotedProposals: any[], maxProposal
       },
     ];
   }
-
+  console.log('bot.ts>generateEmbedsfromUnvotedProposals');
   // safe truncator for embed text (Discord limits: description ~4096, field value ~1024)
   const truncate = (s: string | undefined, n = 1024) =>
     s ? (s.length > n ? s.slice(0, n - 1) + '…' : s) : undefined;
 
   const embeds: any[] = [];
   const limitedProposals = unvotedProposals.slice(0, maxProposals);
+  console.log('limitedProposals:', limitedProposals);
   limitedProposals.forEach((proposal, index) => {
     // prefer enriched title/abstract if present
     const proposalTitle =
       proposal.title ||
       proposal.json_metadata?.body?.title ||
       `⏳ Unvoted Proposal #${index + 1}`;
-    const proposalAbstract =
+    
+    console.log('proposal.title:', proposal.title);
+    console.log('proposal.json:', proposal.json_metadata?.body?.title);
+
+      const proposalAbstract =
       proposal.abstract || proposal.json_metadata?.body?.abstract;
 
     embeds.push({
@@ -103,8 +108,10 @@ async function checkProposalsAndSend(client: Client) {
       return;
     }
 
+    
     const unvotedProposals = await pendingProposalGimbalabsDrepHasNotVotedYet();
-
+    console.log('unvotedProposals:', unvotedProposals);
+    
     if (unvotedProposals.length === 0) {
       console.log("✅ All caught up.");
       await channel.send("✅ **All caught up! Gimbalabs DRep has voted on all pending proposals.**");
