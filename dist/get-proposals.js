@@ -1,8 +1,16 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAllProposals = getAllProposals;
 exports.getProposalByTxHashAndCertIndex = getProposalByTxHashAndCertIndex;
 exports.getPendingProposalsFromAPI = getPendingProposalsFromAPI;
+exports.loadSampleProposalsFromFile = loadSampleProposalsFromFile;
+exports.inspectLocalSample = inspectLocalSample;
+exports.getPendingProposals = getPendingProposals;
+const promises_1 = __importDefault(require("fs/promises"));
+const path_1 = __importDefault(require("path"));
 /**
  * Fetches a single page of proposals
  * @param page - Page number (1-based)
@@ -59,7 +67,7 @@ async function getAllProposals() {
             }
             page++;
             // Add a small delay between requests to be respectful to the API
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
         }
         console.log(`✅ Finished fetching all proposals. Total: ${allProposals.length}`);
         return allProposals;
@@ -108,7 +116,8 @@ async function getProposalByTxHashAndCertIndex(txHash, certIndex) {
  * @returns boolean - True if the proposal is pending
  */
 function isPendingProposal(proposal) {
-    return ((proposal.ratified_epoch === null || proposal.ratified_epoch === undefined) &&
+    return ((proposal.ratified_epoch === null ||
+        proposal.ratified_epoch === undefined) &&
         (proposal.enacted_epoch === null || proposal.enacted_epoch === undefined) &&
         (proposal.dropped_epoch === null || proposal.dropped_epoch === undefined) &&
         (proposal.expired_epoch === null || proposal.expired_epoch === undefined));
@@ -137,7 +146,7 @@ async function getPendingProposalsFromAPI() {
                 }
                 // Small delay to be respectful to API
                 if (i < basicProposals.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 150));
+                    await new Promise((resolve) => setTimeout(resolve, 150));
                 }
             }
             catch (error) {
@@ -152,4 +161,66 @@ async function getPendingProposalsFromAPI() {
         console.error('Error fetching pending proposals from API:', error);
         throw new Error(`Failed to fetch pending proposals from API: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+}
+/**
+ * Load sample proposals from a local file for fast testing (returns array)
+ */
+async function loadSampleProposalsFromFile(filePath) {
+    const p = filePath ||
+        path_1.default.resolve(__dirname, '..', 'personal', 'proposal-metadata.json');
+    try {
+        const raw = await promises_1.default.readFile(p, 'utf8');
+        const parsed = JSON.parse(raw);
+        // If file is a single metadata object, wrap in an array so callers get a list
+        return Array.isArray(parsed) ? parsed : [parsed];
+    }
+    catch (err) {
+        console.error(`❌ Failed to load sample proposals from ${p}:`, err);
+        return [];
+    }
+}
+/**
+ * Inspect a sample proposal without hitting the API
+ */
+async function inspectLocalSample(sampleIndex = 0) {
+    const list = await loadSampleProposalsFromFile();
+    console.log('Local sample count:', list.length);
+    const sample = list[sampleIndex];
+    if (!sample) {
+        console.log('No sample available at index', sampleIndex);
+        return null;
+    }
+    console.log('Sample keys:', Object.keys(sample));
+    console.log('Sample JSON:', JSON.stringify(sample, null, 2));
+    return sample;
+}
+// --- ADDED: unified helper to choose sample vs API ---
+/**
+ * Get pending proposals, either from local sample file or from API.
+ * Priority: explicit arg > USE_SAMPLE_PROPOSALS env var (true/false) > false (API)
+ * @param useSample - optional override to force using local sample
+ */
+async function getPendingProposals(useSample) {
+    const envFlag = String(process.env.USE_SAMPLE_PROPOSALS || '').toLowerCase();
+    const use = typeof useSample === 'boolean'
+        ? useSample
+        : envFlag === '1' || envFlag === 'true' || envFlag === 'yes';
+    if (use) {
+        console.log('Using local sample proposals for testing (getPendingProposals).');
+        const samples = await loadSampleProposalsFromFile();
+        // try to normalize to the "detailed proposal" shape expected by callers:
+        // if the sample is a metadata object, return as-is; otherwise return list.
+        return samples;
+    }
+    else {
+        console.log('Fetching pending proposals from API (getPendingProposals).');
+        return await getPendingProposalsFromAPI();
+    }
+}
+// If run directly with ts-node: `npx ts-node src/get-proposals.ts`
+if (typeof require !== 'undefined' && require.main === module) {
+    (async () => {
+        await inspectLocalSample(0);
+        process.exit(0);
+    })();
 }

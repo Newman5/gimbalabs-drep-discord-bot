@@ -45,16 +45,18 @@ async function pendingProposalGimbalabsDrepHasNotVotedYet() {
     console.log('🔍 Checking which pending proposals Gimbalabs DRep has not voted on yet...');
     try {
         // Get pending proposals and DRep votes in parallel
+        console.log('[pendingProposalGimbalabsDrepHasNotVotedYet] USE_SAMPLE_PROPOSALS=', process.env.USE_SAMPLE_PROPOSALS);
         const [pendingProposals, drepVotes] = await Promise.all([
-            (0, get_proposals_1.getPendingProposalsFromAPI)(),
-            getGimbalabsDrepVotes()
+            // call the selector (it reads USE_SAMPLE_PROPOSALS if no arg passed)
+            (0, get_proposals_1.getPendingProposals)(),
+            getGimbalabsDrepVotes(),
         ]);
         console.log(`📋 Found ${pendingProposals.length} pending proposals`);
         console.log(`🗳️ Found ${drepVotes.length} DRep votes`);
         // Create a set of transaction hashes that the DRep has voted on
-        const votedTxHashes = new Set(drepVotes.map(vote => vote.tx_hash));
+        const votedTxHashes = new Set(drepVotes.map((vote) => vote.tx_hash));
         // Filter pending proposals to find those not voted on
-        const unvotedProposals = pendingProposals.filter(proposal => {
+        const unvotedProposals = pendingProposals.filter((proposal) => {
             const proposalTxHash = proposal.tx_hash;
             return !votedTxHashes.has(proposalTxHash);
         });
@@ -70,26 +72,42 @@ async function pendingProposalGimbalabsDrepHasNotVotedYet() {
  * Fetch proposal metadata (title, abstract) from Blockfrost
  */
 async function fetchProposalMetadata(tx_hash, cert_index) {
+    const url = `${process.env.BLOCKFROST_API_URL}/governance/proposals/${tx_hash}/${cert_index}/metadata`;
+    const apiKey = process.env.API_KEY ||
+        process.env.BLOCKFROST_API_KEY ||
+        process.env.BLOCKFROST_PROJECT_ID;
     try {
-        const url = `${process.env.BLOCKFROST_API_URL}/governance/proposals/${tx_hash}/${cert_index}/metadata`;
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                project_id: process.env.BLOCKFROST_API_KEY,
+                'dmtr-api-key': apiKey,
+                'Content-Type': 'application/json',
             },
         });
         if (!response.ok) {
-            throw new Error(`HTTP error! ${response.status} ${response.statusText}`);
+            const body = await response.text().catch(() => '<no body>');
+            console.error(`❌ Metadata fetch failed for ${tx_hash}/${cert_index}: ${response.status} ${response.statusText} - ${body}`);
+            return { title: 'Unknown', abstract: '', json_metadata: undefined };
         }
         const data = await response.json();
-        return {
-            title: data.json_metadata?.body?.title || 'Untitled Proposal',
-            abstract: data.json_metadata?.body?.abstract || '',
-        };
+        // some endpoints return json_metadata as a string -> parse if needed
+        let meta = data.json_metadata;
+        if (typeof meta === 'string') {
+            try {
+                meta = JSON.parse(meta);
+            }
+            catch (e) {
+                /* ignore parse error */
+            }
+        }
+        const title = meta?.body?.title || data.title || 'Untitled Proposal';
+        const abstract = meta?.body?.abstract || data.abstract || '';
+        return { title, abstract, json_metadata: meta };
+        console.log(`fetchProposalMetadata gets: ${title} and ${abstract}`);
     }
     catch (error) {
         console.error(`❌ Error fetching metadata for ${tx_hash}/${cert_index}:`, error);
-        return { title: 'Unknown', abstract: '' };
+        return { title: 'Unknown', abstract: '', json_metadata: undefined };
     }
 }
 /**
@@ -97,11 +115,40 @@ async function fetchProposalMetadata(tx_hash, cert_index) {
  */
 async function enrichProposalsWithTitles(unvotedProposals) {
     return Promise.all(unvotedProposals.map(async (proposal) => {
-        const meta = await fetchProposalMetadata(proposal.tx_hash, proposal.cert_index);
+        // If the proposal already includes json_metadata, prefer that (and parse if it's a string)
+        let metaObj = undefined;
+        if (proposal.json_metadata) {
+            try {
+                metaObj =
+                    typeof proposal.json_metadata === 'string'
+                        ? JSON.parse(proposal.json_metadata)
+                        : proposal.json_metadata;
+            }
+            catch (e) {
+                console.warn(`⚠️ Failed to parse proposal.json_metadata for ${proposal.tx_hash}:${proposal.cert_index} — falling back to fetch`);
+                metaObj = undefined;
+            }
+        }
+        // If no local metadata, fetch it
+        let fetchedMeta;
+        if (!metaObj) {
+            fetchedMeta = await fetchProposalMetadata(proposal.tx_hash, proposal.cert_index);
+            metaObj = fetchedMeta.json_metadata;
+        }
+        const title = metaObj?.body?.title ||
+            proposal.title ||
+            fetchedMeta?.title ||
+            'Untitled Proposal';
+        const abstract = metaObj?.body?.abstract ||
+            proposal.abstract ||
+            fetchedMeta?.abstract ||
+            '';
+        console.log(`Enriched proposal ${proposal.tx_hash}:${proposal.cert_index} -> title: ${title}`);
         return {
             ...proposal,
-            title: meta.title,
-            abstract: meta.abstract,
+            title,
+            abstract,
+            json_metadata: metaObj, // attach parsed metadata for downstream use
         };
     }));
 }

@@ -18,23 +18,39 @@ if (!TOKEN || !CHANNEL_ID) {
  */
 function generateEmbedsFromUnvotedProposals(unvotedProposals: any[], maxProposals: number = 10): any[] {
   if (unvotedProposals.length === 0) {
-    return [{
-      title: "✅ All Caught Up!",
-      description: "Gimbalabs DRep has voted on all pending proposals.",
-      color: 0x2ecc71,
-      timestamp: new Date().toISOString(),
-    }];
+    return [
+      {
+        title: '✅ All Caught Up!',
+        description: 'Gimbalabs DRep has voted on all pending proposals.',
+        color: 0x2ecc71,
+        timestamp: new Date().toISOString(),
+      },
+    ];
   }
+
+  // safe truncator for embed text (Discord limits: description ~4096, field value ~1024)
+  const truncate = (s: string | undefined, n = 1024) =>
+    s ? (s.length > n ? s.slice(0, n - 1) + '…' : s) : undefined;
 
   const embeds: any[] = [];
   const limitedProposals = unvotedProposals.slice(0, maxProposals);
   limitedProposals.forEach((proposal, index) => {
+    // prefer enriched title/abstract if present
+    const proposalTitle =
+      proposal.title ||
+      proposal.json_metadata?.body?.title ||
+      `⏳ Unvoted Proposal #${index + 1}`;
+    const proposalAbstract =
+      proposal.abstract || proposal.json_metadata?.body?.abstract;
+
     embeds.push({
-      title: `⏳ Unvoted Proposal #${index + 1}`,
+      title: proposalTitle,
+      // include a truncated abstract/description to show proposal body summary
+      description: truncate(proposalAbstract, 2048),
       fields: [
         {
           name: 'Transaction Hash',
-          value: `\`${proposal.tx_hash.substring(0,16)}...\``,
+          value: `\`...${proposal.tx_hash.slice(-8)}\``,
           inline: true,
         },
         {
@@ -52,6 +68,16 @@ function generateEmbedsFromUnvotedProposals(unvotedProposals: any[], maxProposal
           value: proposal.expiration?.toString() || 'Unknown',
           inline: true,
         },
+        // include a Summary field (not inline) with a shorter truncation to stay within field limits
+        ...(proposalAbstract
+          ? [
+              {
+                name: 'Summary',
+                value: truncate(proposalAbstract, 1024) as string,
+                inline: false,
+              },
+            ]
+          : []),
         {
           name: 'GovTool',
           value: `[Link](https://gov.tools/governance_actions/${proposal.tx_hash}#${proposal.cert_index})`,
